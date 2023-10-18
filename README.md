@@ -4,7 +4,9 @@ Add import to this file python
 sys.path.append('../')
 import ParserBurp.parser as parser
 ```
+
 Save request in folder python file
+
 ![](Screenshot%202023-10-18%20174344.png)
 
 # Features
