@@ -1,6 +1,9 @@
 import requests
-from urllib.parse import urlparse, urlencode,parse_qs,quote
+from urllib.parse import urlparse,parse_qs,quote
 from urllib3.exceptions import InsecureRequestWarning
+import json
+import concurrent.futures
+import copy
 
 debug = False
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
@@ -9,7 +12,7 @@ requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 def parse_request(file_name):
 	line = ""
 	headers = {}
-	post_data = ""
+	post_data_temp = ""
 	header_collection_done = False
 	file_object = open(file_name , "r")
 	file_object.seek(0)
@@ -23,8 +26,15 @@ def parse_request(file_name):
 					line[0:line.find(":")].strip() : line[line.find(":")+1 :].strip()
 				})
 		else:
-			post_data = post_data + line
+			post_data_temp = post_data_temp + line
 	file_object.close()
+	if post_data_temp != "":
+		if post_data_temp.startswith("{"):
+			post_data = json.loads(post_data_temp)
+		else:
+			post_data = parse_qs(post_data_temp)
+	else:
+		post_data = post_data_temp
 	return (headers , post_data)
 
 #dong dau tien
@@ -35,14 +45,17 @@ def get_method_and_resource(file_name):
 	request_line = request_line.split(" ")
 	method = request_line[0]
 	path = urlparse(request_line[1]).path
-	query_get = urlparse(request_line[1]).query
+	query_get = parse_qs(urlparse(request_line[1]).query)
 	return method , path , query_get
 
 def gen_url(https = False,headers = None, resource_name = None , query_get = None):
 	protocol = "https" if (https is True) else "http"
+	temp = ""
 	if (query_get is not None) and (query_get != ""):
-		query_get = "?" + query_get
-	url = protocol + "://" + headers["Host"] + resource_name + query_get
+		for key in query_get:
+			value = query_get[key]	
+			temp = "?" + key + "=" + value
+	url = protocol + "://" + headers["Host"] + resource_name + temp
 	return url
 
 # def parse_query_get(query_get):
@@ -58,5 +71,28 @@ def send(proxies = None, headers = None, post_data = None, method = None, url = 
 		temp_url = temp.scheme + "://" + temp.netloc + temp.path + "?" + quote(temp.query,safe="=%")
 		response = requests.get(url = temp_url , headers = headers , proxies = proxies , verify = False)
 	elif method.lower() == "post":
+		if post_data.startswith("{"):
+			post_data = json.dumps(post_data)
 		response = requests.post(url = url , headers = headers , data = post_data , proxies = proxies , verify = False)
 	return response
+
+#generate list task
+tasks = []
+def put(method,url,headers,proxy,post_data):
+	try:
+		new_post_data = copy.deepcopy([method,url,headers,proxy,post_data])
+		tasks.append(new_post_data)
+	except:
+		print("Error in Put function")
+
+#multi thread
+def sends():
+	futures = []
+	result = []
+	with concurrent.futures.ThreadPoolExecutor(max_workers=12) as executor:
+		for task in tasks:
+			futures.append(executor.submit(send,proxies=task[3],headers=task[2],post_data=task[4],method=task[0],url=task[1]))
+		for future in concurrent.futures.as_completed(futures):
+			result.append(future.result())
+		tasks.clear()
+	return result
