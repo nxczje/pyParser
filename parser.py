@@ -65,20 +65,22 @@ def gen_url(https = False,headers = None, resource_name = None , query_get = Non
 
 
 #send request get or post
-def send(proxies = None, headers = None, post_data = None, method = None, url = None):
+def send(proxies = None, headers = None, post_data = None, method = None, url = None,s=None):
+	if s is None:
+		s = requests.Session()
 	if method.lower() == "get":
 		temp = urlparse(url)
 		temp_url = temp.scheme + "://" + temp.netloc + temp.path + "?" + quote(temp.query,safe="=%")
-		response = requests.get(url = temp_url , headers = headers , proxies = proxies , verify = False)
+		response = s.get(url = temp_url , headers = headers , proxies = proxies , verify = False)
 	elif method.lower() == "post":
 		if post_data.startswith("{"):
 			post_data = json.dumps(post_data)
-		response = requests.post(url = url , headers = headers , data = post_data , proxies = proxies , verify = False)
+		response = s.post(url = url , headers = headers , data = post_data , proxies = proxies , verify = False)
 	return response
 
 #generate list task
 tasks = []
-def put(method,url,headers,proxy,post_data):
+def put(method,url,headers,proxy=None,post_data=None):
 	try:
 		new_post_data = copy.deepcopy([method,url,headers,proxy,post_data])
 		tasks.append(new_post_data)
@@ -87,11 +89,12 @@ def put(method,url,headers,proxy,post_data):
 
 #multi thread
 def sends():
+	s = requests.Session()
 	futures = []
 	result = []
-	with concurrent.futures.ThreadPoolExecutor(max_workers=12) as executor:
+	with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
 		for task in tasks:
-			futures.append(executor.submit(send,proxies=task[3],headers=task[2],post_data=task[4],method=task[0],url=task[1]))
+			futures.append(executor.submit(send,proxies=task[3],headers=task[2],post_data=task[4],method=task[0],url=task[1],s=s))
 		for future in concurrent.futures.as_completed(futures):
 			result.append(future.result())
 		tasks.clear()
