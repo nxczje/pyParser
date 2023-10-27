@@ -14,7 +14,6 @@ def run():
     # work somethings
     method , path , query_get = parser.get_method_and_resource(FILE)
     headers , post_data = parser.parse_request(FILE)
-
     url = parser.gen_url(https=True, headers = headers , resource_name = path , query_get = query_get)
     parser.put(method,url,headers,proxy)
     result = parser.sends()

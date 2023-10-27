@@ -73,7 +73,7 @@ def send(proxies = None, headers = None, post_data = None, method = None, url = 
 		temp_url = temp.scheme + "://" + temp.netloc + temp.path + "?" + quote(temp.query,safe="=%")
 		response = s.get(url = temp_url , headers = headers , proxies = proxies , verify = False)
 	elif method.lower() == "post":
-		if post_data.startswith("{"):
+		if str(post_data).startswith("{"):
 			post_data = json.dumps(post_data)
 		response = s.post(url = url , headers = headers , data = post_data , proxies = proxies , verify = False)
 	return response
