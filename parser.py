@@ -4,6 +4,8 @@ from urllib3.exceptions import InsecureRequestWarning
 import json
 import concurrent.futures
 import copy
+from multiprocessing import Queue,Process
+import queue
 
 debug = False
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
@@ -99,3 +101,39 @@ def sends():
 			result.append(future.result())
 		tasks.clear()
 	return result
+
+#multi process
+def Sends():
+	number_of_process = 12
+	url_to_scan = Queue()
+	url_done = Queue()
+	url_no_results = Queue()
+	process = []
+	global result
+
+	for i in tasks:
+		url_to_scan.put(i)
+	
+	#call process
+	for _ in range(number_of_process):
+		p = Process(target=Sends_in_process,args=(url_to_scan,url_done,url_no_results))
+		process.append(p)
+		p.start()
+
+	for p in process:
+		p.join()
+	
+	while not url_done.empty():
+		result.append(url_done.get())
+
+def Sends_in_process(asn_to_scan,asn_done,asn_no_results):
+	while True:
+		try:
+			task = asn_to_scan.get_nowait()
+			result = send(task[3],task[2],task[4],task[0],task[1])
+			
+		except queue.Empty:
+			break
+		else:
+			asn_done.put(result)
+	return True
